@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -23,3 +23,10 @@ jobs:
         with:
           name: AI-Target-Scorer-10M-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish direct APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v0.1-debug --yes || true
+          gh release create v0.1-debug app/build/outputs/apk/debug/app-debug.apk --title "AI Target Scorer 10M - Debug" --notes "Prototype camera and zoom only; automatic scoring not implemented." --prerelease
