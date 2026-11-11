@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
             setOnClickListener {
                 detect = !detect
                 text = if (detect) "Détection : ACTIVÉE" else "Détection : ARRÊTÉE"
-                if (!detect) overlay.show(emptyList(), 1, 1, 0)
+                if (!detect) this@MainActivity.overlay.show(emptyList(), 1, 1, 0)
             }
         }
         root.addView(status)
