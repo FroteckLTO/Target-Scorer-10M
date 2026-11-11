@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                             runOnUiThread {
                                 if (detect) {
                                     overlay.show(result.first, result.second, result.third, frame.imageInfo.rotationDegrees)
-                                    status.text = "Anneaux candidats : ${result.first.size} | Détection expérimentale (pas de score)"
+                                    status.text = "Anneaux concentriques : ${result.first.size} | Si 0, rapprocher/centrer la cible"
                                 }
                             }
                         }
@@ -186,9 +186,40 @@ class MainActivity : ComponentActivity() {
                     abs(other.y - ring.y) < max(5.0, ring.r * 0.12) &&
                     abs(other.r - ring.r) < max(4.0, ring.r * 0.14)
                 }) unique.add(ring)
-                if (unique.size >= 25) break
+                if (unique.size >= 100) break
             }
-            return Triple(unique, width, height)
+            // Accept a target only when at least three different rings share a center.
+            // Reject isolated circles from cables, walls and electrical equipment.
+            val centerTolerance = min(width, height) * 0.035
+            val minR = min(width, height) * 0.018
+            val maxR = min(width, height) * 0.40
+            val plausible = unique.filter {
+                it.r in minR..maxR &&
+                it.x in (width * 0.15)..(width * 0.85) &&
+                it.y in (height * 0.15)..(height * 0.85)
+            }
+            val groups = plausible.map { anchor ->
+                plausible.filter { candidate ->
+                    kotlin.math.hypot(candidate.x - anchor.x, candidate.y - anchor.y) < centerTolerance
+                }.sortedBy { it.r }
+            }
+            val best = groups.maxByOrNull { group ->
+                group.fold(mutableListOf<Double>()) { radii, ring ->
+                    if (radii.none { abs(it - ring.r) < max(5.0, ring.r * 0.10) }) radii.add(ring.r)
+                    radii
+                }.size
+            } ?: emptyList()
+            val distinct = mutableListOf<Ring>()
+            for (ring in best) {
+                if (distinct.none { abs(it.r - ring.r) < max(5.0, ring.r * 0.10) }) distinct.add(ring)
+            }
+            // Fail closed: don't draw unrelated circles when the target is uncertain.
+            val selected = if (distinct.size >= 3) {
+                val cx = distinct.map { it.x }.average()
+                val cy = distinct.map { it.y }.average()
+                distinct.map { Ring(cx, cy, it.r) }
+            } else emptyList()
+            return Triple(selected, width, height)
         } finally {
             contours.forEach { it.release() }
             hierarchy.release(); circles.release(); edges.release()
